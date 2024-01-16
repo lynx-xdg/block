@@ -1,28 +1,9 @@
-use core::fmt::Debug;
-use log::info;
-use sha2::{Digest, Sha256};
-use std::{cmp::Ordering, vec, thread::{sleep, self}, time::Duration, sync::Mutex};
+use crate::block::{Block, BlockData};
 
-#[derive(Debug)]
-pub struct BlockChain<T: Debug> {
+pub struct BlockChain<T> {
     pub min_mine_time: u64,
     pub max_mine_time: u64,
-    pub blocks: Vec<Block<T>>,
-    is_mining: bool,
-}
-
-#[derive(Debug)]
-pub struct Block<T> {
-    pub id: u64,
-    pub previous_hash: [u8; 32],
-    pub timestamp: i64,
-    pub data: T,
-    pub nonce: u64,
-    pub difficulty: u32,
-}
-
-pub trait BlockData {
-    fn to_bytes(&self) -> &[u8];
+    blocks: Vec<Block<T>>,
 }
 
 #[derive(Debug)]
@@ -31,7 +12,7 @@ pub enum VerifyResult {
     Invalid(usize),
 }
 
-impl<T: Debug + Default + BlockData> BlockChain<T> {
+impl<T: Default + BlockData> BlockChain<T> {
     pub fn new() -> Self {
         Self {
             blocks: vec![
@@ -46,10 +27,10 @@ impl<T: Debug + Default + BlockData> BlockChain<T> {
             ],
             min_mine_time: 1000,
             max_mine_time: 1000,
-            is_mining: false
         }
     }
-    fn make_block(&self, data: T) -> Block<T> {
+    /// returns a new unmined block that needs to be mined before it can be attached
+    pub fn new_block(&self, data: T) -> Block<T> {
         // fetch the last block
         let previous_block = self.blocks.last().unwrap();
 
@@ -76,29 +57,6 @@ impl<T: Debug + Default + BlockData> BlockChain<T> {
             difficulty,
         }
     }
-    pub fn mine(&mut self, data: T) {
-        // make a block with the data
-        let mut block = self.make_block(data);
-
-        // create a number to compare the hash to
-        let compare = Block::<T>::difficulty_cmp(block.difficulty);
-
-        // timing for optimisation purposes
-        let start = chrono::Utc::now().timestamp_millis();
-
-        // while the hash is 'smaller' than the compare number the hash is invalid
-        // if the hash is invalid, change to nonce value to result in a new hash
-        while !(block.is_valid(compare)) {
-            block.nonce += 1;
-        }
-
-        // calculate the hashrate
-        let end = chrono::Utc::now().timestamp_millis();
-        info!("Hashrate: {}", (block.nonce as f32) * 1000. / ((end - start) as f32));
-
-        // when the block is valid we add it to the blockchain
-        self.blocks.push(block);
-    }
     pub fn verify(&self) -> VerifyResult {
         // a simple function to check if the blockhain is valid
         for i in 0..(self.blocks.len() - 1) {
@@ -110,61 +68,10 @@ impl<T: Debug + Default + BlockData> BlockChain<T> {
         }
         VerifyResult::Valid
     }
-}
-
-impl<T: BlockData> Block<T> {
-    #[inline]
-    pub fn hash(&self) -> [u8; 32] {
-        //Sha256::digest(self.to_bytes()).into()
-        blake3::hash(&self.to_bytes()).into()
+    pub fn last(&self) -> &Block<T> {
+        self.blocks.last().unwrap()
     }
-    #[inline]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        // this is not great but I couldn't find a way to convert this struct into a &[u8] while
-        // having the generic type
-        let id = self.id.to_be_bytes();
-        let timestamp = self.timestamp.to_be_bytes();
-        let nonce = self.nonce.to_be_bytes();
-        let difficulty = self.difficulty.to_be_bytes();
-        let data = self.data.to_bytes();
-        let mut combined = Vec::with_capacity(8 + 8 + 8 + 4 + 32 + data.len());
-        combined.extend_from_slice(&id);
-        combined.extend_from_slice(&timestamp);
-        combined.extend_from_slice(&nonce);
-        combined.extend_from_slice(&difficulty);
-        combined.extend_from_slice(&self.previous_hash);
-        combined.extend_from_slice(&data);
-        combined
-    }
-    pub fn is_valid(&self, x: [u8; 32]) -> bool {
-        // calculate the hash of the current block
-        let hash = self.hash();
-
-        // compare the hash to the cmp
-        for i in 0..((self.difficulty / 256 + 1) as usize) {
-            match hash[i].cmp(&x[i]) {
-                Ordering::Greater => return false,
-                Ordering::Less    => return true,
-                Ordering::Equal   => continue
-            }
-        }
-        true
-    }
-    fn difficulty_cmp(difficulty: u32) -> [u8; 32] {
-        // the max value for a u256
-        let mut compare = [255u8; 32];
-        let mut i = 0;
-        let mut d = difficulty;
-        while d != 0 {
-            if d >= 255 {
-                compare[i] = 0;
-                i += 1;
-                d -= 255;
-            } else {
-                compare[i] -= d as u8;
-                d = 0;
-            }
-        }
-        compare
+    pub fn push(&mut self, block: Block<T>) {
+        self.blocks.push(block);
     }
 }
