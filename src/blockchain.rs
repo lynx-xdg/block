@@ -110,9 +110,11 @@ impl<T: serde::Serialize + Debug + Default> BlockChain<T> {
 }
 
 impl<T: serde::Serialize> Block<T> {
+    #[inline]
     fn hash(&self) -> [u8; 32] {
         Sha256::digest(self.to_bytes()).into()
     }
+    #[inline]
     fn to_bytes(&self) -> Vec<u8> {
         // this is not great but I couldn't find a way to convert this struct into a &[u8] while
         // having the generic type
