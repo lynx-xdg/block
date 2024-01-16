@@ -4,6 +4,7 @@ pub trait BlockData {
     fn to_bytes(&self) -> &[u8];
 }
 
+#[derive(Clone, Copy, Default)]
 pub struct Block<T> {
     pub id: u64,
     pub previous_hash: [u8; 32],

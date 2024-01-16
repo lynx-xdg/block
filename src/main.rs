@@ -2,8 +2,9 @@ use log::info;
 mod block;
 mod blockchain;
 mod miner;
+mod threaded_miner;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Data {
     pub test: String,
 }
@@ -19,6 +20,8 @@ fn main() {
     // create the blockchain struct for the type Data
     info!("Creating blockchain");
     let mut app = blockchain::BlockChain::<Data>::new();
+    let block = app.new_block(Data { test: "Eeer".into() });
+    println!("{:?}", block.to_bytes());
     let mut miner = miner::Miner::new(&mut app);
     
     // mine 1000 blocks to test the mining speed and functionality
@@ -41,7 +44,7 @@ fn main() {
             miner.chain.last().difficulty
         );
     }
-
+    
     // check if there were any errors with the blockchain
     info!("Verifying blockchain");
     println!("{:?}", app.verify());

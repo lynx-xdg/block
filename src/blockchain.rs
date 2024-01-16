@@ -1,5 +1,6 @@
 use crate::block::{Block, BlockData};
 
+#[derive(Clone)]
 pub struct BlockChain<T> {
     pub min_mine_time: u64,
     pub max_mine_time: u64,
