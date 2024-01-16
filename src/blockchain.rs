@@ -1,16 +1,17 @@
 use core::fmt::Debug;
 use log::info;
 use sha2::{Digest, Sha256};
-use std::cmp::Ordering;
+use std::{cmp::Ordering, vec, thread::{sleep, self}, time::Duration, sync::Mutex};
 
 #[derive(Debug)]
 pub struct BlockChain<T: Debug> {
     pub min_mine_time: u64,
     pub max_mine_time: u64,
     pub blocks: Vec<Block<T>>,
+    is_mining: bool,
 }
 
-#[derive(serde::Serialize, Debug)]
+#[derive(Debug)]
 pub struct Block<T> {
     pub id: u64,
     pub previous_hash: [u8; 32],
@@ -20,6 +21,9 @@ pub struct Block<T> {
     pub difficulty: u32,
 }
 
+pub trait BlockData {
+    fn to_bytes(&self) -> &[u8];
+}
 
 #[derive(Debug)]
 pub enum VerifyResult {
@@ -27,7 +31,7 @@ pub enum VerifyResult {
     Invalid(usize),
 }
 
-impl<T: serde::Serialize + Debug + Default> BlockChain<T> {
+impl<T: Debug + Default + BlockData> BlockChain<T> {
     pub fn new() -> Self {
         Self {
             blocks: vec![
@@ -40,8 +44,9 @@ impl<T: serde::Serialize + Debug + Default> BlockChain<T> {
                     difficulty: 0
                 }
             ],
-            min_mine_time: 500,
-            max_mine_time: 2000,
+            min_mine_time: 1000,
+            max_mine_time: 1000,
+            is_mining: false
         }
     }
     fn make_block(&self, data: T) -> Block<T> {
@@ -52,13 +57,11 @@ impl<T: serde::Serialize + Debug + Default> BlockChain<T> {
         let time = chrono::Utc::now().timestamp_millis();
 
         // the time since the last block is used to decide difficulty
-        // increase the difficulty when the time it takes to mine a block gets below 1000ms
-        // decrease the difficulty when the time it takes to mine a block gets above 2000ms
         let delta = (time - previous_block.timestamp).max(0) as u64;
         let difficulty = if delta < self.min_mine_time {
-            previous_block.difficulty + 1
+            previous_block.difficulty.min(u32::MAX - 1) + 1
         } else if delta > self.max_mine_time {
-            previous_block.difficulty - 1
+            previous_block.difficulty.max(u32::MIN + 1) - 1
         } else {
             previous_block.difficulty
         };
@@ -109,18 +112,31 @@ impl<T: serde::Serialize + Debug + Default> BlockChain<T> {
     }
 }
 
-impl<T: serde::Serialize> Block<T> {
+impl<T: BlockData> Block<T> {
     #[inline]
-    fn hash(&self) -> [u8; 32] {
-        Sha256::digest(self.to_bytes()).into()
+    pub fn hash(&self) -> [u8; 32] {
+        //Sha256::digest(self.to_bytes()).into()
+        blake3::hash(&self.to_bytes()).into()
     }
     #[inline]
-    fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         // this is not great but I couldn't find a way to convert this struct into a &[u8] while
         // having the generic type
-        bincode::serialize(self).unwrap()
+        let id = self.id.to_be_bytes();
+        let timestamp = self.timestamp.to_be_bytes();
+        let nonce = self.nonce.to_be_bytes();
+        let difficulty = self.difficulty.to_be_bytes();
+        let data = self.data.to_bytes();
+        let mut combined = Vec::with_capacity(8 + 8 + 8 + 4 + 32 + data.len());
+        combined.extend_from_slice(&id);
+        combined.extend_from_slice(&timestamp);
+        combined.extend_from_slice(&nonce);
+        combined.extend_from_slice(&difficulty);
+        combined.extend_from_slice(&self.previous_hash);
+        combined.extend_from_slice(&data);
+        combined
     }
-    fn is_valid(&self, x: [u8; 32]) -> bool {
+    pub fn is_valid(&self, x: [u8; 32]) -> bool {
         // calculate the hash of the current block
         let hash = self.hash();
 
@@ -139,7 +155,7 @@ impl<T: serde::Serialize> Block<T> {
         let mut compare = [255u8; 32];
         let mut i = 0;
         let mut d = difficulty;
-        while d >= 255 {
+        while d != 0 {
             if d >= 255 {
                 compare[i] = 0;
                 i += 1;
