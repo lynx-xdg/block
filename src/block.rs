@@ -35,7 +35,7 @@ impl<T: BlockData> Block<T> {
         combined.extend_from_slice(&nonce);
         combined.extend_from_slice(&difficulty);
         combined.extend_from_slice(&self.previous_hash);
-        combined.extend_from_slice(&data);
+        combined.extend_from_slice(data);
         combined
     }
     pub fn is_valid(&self, x: [u8; 32]) -> bool {

@@ -25,9 +25,8 @@ fn main() {
     let mut miner = miner::Miner::new(&mut app);
     
     // mine 1000 blocks to test the mining speed and functionality
-    info!("Started mining 1000 blocks for testing");
-    for _ in 0..1000{
-        info!("Start mining block");
+    info!("Started mining 750 blocks for testing");
+    for _ in 0..750 {
         let start = chrono::Utc::now().timestamp_millis();
 
         // mine a block with data "Eeeey"

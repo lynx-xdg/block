@@ -13,6 +13,12 @@ pub enum VerifyResult {
     Invalid(usize),
 }
 
+impl<T: Default + BlockData> Default for BlockChain<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Default + BlockData> BlockChain<T> {
     pub fn new() -> Self {
         Self {

@@ -9,7 +9,7 @@ pub struct Miner<'a, T: BlockData + Default> {
 impl<'a, T: BlockData + Default> Miner<'a, T> {
     pub fn new(chain: &'a mut BlockChain<T>) -> Miner<'a, T> {
         Miner {
-            chain: chain
+            chain
         }
     }
     pub fn mine(&mut self, data: T) {
