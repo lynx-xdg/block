@@ -13,6 +13,8 @@ impl block::BlockData for Data {
         self.test.as_ref()
     }
 }
+
+/*
 fn main() {
     // for logging
     simple_logger::SimpleLogger::new().init().unwrap();
@@ -47,4 +49,13 @@ fn main() {
     // check if there were any errors with the blockchain
     info!("Verifying blockchain");
     println!("{:?}", app.verify());
+}
+*/
+
+fn main() {
+    let mut app = blockchain::BlockChain::<Data>::new();
+    for i in 0..1000 {
+        let mut block = app.new_block(Data { test: "This is a test".into() });
+        block.timestamp = 0;
+    }
 }
