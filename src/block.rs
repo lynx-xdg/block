@@ -22,7 +22,7 @@ impl<T: BlockData> Block<T> {
     }
     #[inline]
     pub fn to_bytes(&self) -> Vec<u8> {
-        // this is not great but I couldn't find a way to convert this struct into a &[u8] while
+        // this is not great but I couldn't find a better way to convert this struct into a &[u8] while
         // having the generic type
         let id = self.id.to_be_bytes();
         let timestamp = self.timestamp.to_be_bytes();

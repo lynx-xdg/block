@@ -1,4 +1,4 @@
-use log::info;
+
 mod block;
 mod blockchain;
 mod miner;
@@ -53,8 +53,8 @@ fn main() {
 */
 
 fn main() {
-    let mut app = blockchain::BlockChain::<Data>::new();
-    for i in 0..1000 {
+    let app = blockchain::BlockChain::<Data>::new();
+    for _i in 0..1000 {
         let mut block = app.new_block(Data { test: "This is a test".into() });
         block.timestamp = 0;
     }
